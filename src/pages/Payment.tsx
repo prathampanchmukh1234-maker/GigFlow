@@ -3,7 +3,11 @@ import { useLocation, useNavigate } from "react-router-dom";
 import { useApp } from "../App";
 import { supabase } from "../services/supabaseClient";
 
-const paymentApiBaseUrl = import.meta.env.VITE_PAYMENT_API_URL || "http://localhost:4242";
+const checkoutSessionEndpoint =
+  import.meta.env.VITE_PAYMENT_API_URL ||
+  (import.meta.env.PROD
+    ? "/api/create-checkout-session"
+    : "http://localhost:4242/create-checkout-session");
 const forceStripeForFreeGigs = import.meta.env.VITE_FORCE_STRIPE_FOR_FREE_GIGS === "true";
 
 export default function Payment() {
@@ -58,7 +62,7 @@ export default function Payment() {
       };
       localStorage.setItem("pendingOrder", JSON.stringify(pendingOrder));
 
-      const response = await fetch(`${paymentApiBaseUrl}/create-checkout-session`, {
+      const response = await fetch(checkoutSessionEndpoint, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",

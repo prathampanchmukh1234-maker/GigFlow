@@ -15,7 +15,11 @@ import { supabase } from '../services/supabaseClient';
 
 import axios from "axios";
 
-const paymentApiBaseUrl = import.meta.env.VITE_PAYMENT_API_URL || "http://localhost:4242";
+const checkoutSessionEndpoint =
+  import.meta.env.VITE_PAYMENT_API_URL ||
+  (import.meta.env.PROD
+    ? "/api/create-checkout-session"
+    : "http://localhost:4242/create-checkout-session");
 const forceStripeForFreeGigs = import.meta.env.VITE_FORCE_STRIPE_FOR_FREE_GIGS === "true";
 
 
@@ -148,14 +152,11 @@ const handlePayment = async () => {
 // Save temporarily
 localStorage.setItem("pendingOrder", JSON.stringify(newOrder));
 
-    const response = await axios.post(
-      `${paymentApiBaseUrl}/create-checkout-session`,
-      {
-        title: gig.title,
-        price: price,
-        forceTestCharge: price === 0 && forceStripeForFreeGigs,
-      }
-    );
+    const response = await axios.post(checkoutSessionEndpoint, {
+      title: gig.title,
+      price: price,
+      forceTestCharge: price === 0 && forceStripeForFreeGigs,
+    });
 
     if (response.data?.free && !forceStripeForFreeGigs) {
       addOrder(newOrder);
