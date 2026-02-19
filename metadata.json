@@ -1,0 +1,8 @@
+{
+  "name": "GigFlow - AI-Powered Freelance Marketplace",
+  "description": "A comprehensive freelance marketplace platform featuring gig management, role-based dashboards, order tracking, and AI-assisted service description generation.",
+  "requestFramePermissions": [
+    "camera",
+    "microphone"
+  ]
+}
