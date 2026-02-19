@@ -1,10 +1,22 @@
 
 import { GoogleGenAI, Type } from "@google/genai";
 
-const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
+const getApiKey = () =>
+  process.env.API_KEY ||
+  process.env.GEMINI_API_KEY ||
+  import.meta.env.VITE_GEMINI_API_KEY;
+
+const getAi = () => {
+  const apiKey = getApiKey();
+  if (!apiKey) return null;
+  return new GoogleGenAI({ apiKey });
+};
 
 export const generateGigDescription = async (title: string, category: string) => {
   try {
+    const ai = getAi();
+    if (!ai) return "AI key missing. Please configure GEMINI_API_KEY.";
+
     const response = await ai.models.generateContent({
       model: 'gemini-3-flash-preview',
       contents: `Generate a professional and persuasive service description for a freelance gig titled: "${title}" in the category: "${category}". 
@@ -20,6 +32,11 @@ export const generateGigDescription = async (title: string, category: string) =>
 
 export const chatWithMatchAssistant = async (userMessage: string, history: {role: 'user' | 'model', text: string}[]) => {
   try {
+    const ai = getAi();
+    if (!ai) {
+      return { reply: "AI assistant is not configured yet. Please add GEMINI_API_KEY in deployment settings." };
+    }
+
     const response = await ai.models.generateContent({
       model: 'gemini-3-flash-preview',
       contents: [
@@ -64,6 +81,9 @@ export const chatWithMatchAssistant = async (userMessage: string, history: {role
 
 export const searchAssistant = async (query: string) => {
   try {
+    const ai = getAi();
+    if (!ai) return null;
+
     const response = await ai.models.generateContent({
       model: 'gemini-3-flash-preview',
       contents: `User is searching for: "${query}" in a freelance marketplace. 
@@ -105,6 +125,9 @@ export const searchAssistant = async (query: string) => {
 
 export const simulateChatResponse = async (freelancerName: string, freelancerBio: string, userMessage: string, chatHistory: {role: string, text: string}[]) => {
   try {
+    const ai = getAi();
+    if (!ai) return "Thanks for your message! I'll get back to you soon.";
+
     const historyParts = chatHistory.map(h => `${h.role === 'user' ? 'Client' : freelancerName}: ${h.text}`).join('\n');
     const response = await ai.models.generateContent({
       model: 'gemini-3-flash-preview',
@@ -123,8 +146,10 @@ export const simulateChatResponse = async (freelancerName: string, freelancerBio
  */
 export const generateGigImage = async (prompt: string, size: '1K' | '2K' | '4K' = '1K') => {
   try {
-    const dynamicAi = new GoogleGenAI({ apiKey: process.env.API_KEY });
-    const response = await dynamicAi.models.generateContent({
+    const ai = getAi();
+    if (!ai) throw new Error("Missing GEMINI_API_KEY");
+
+    const response = await ai.models.generateContent({
       model: 'gemini-3-pro-image-preview',
       contents: {
         parts: [{ text: `Professional, commercial grade marketplace service cover for: ${prompt}. Cinematic lighting, ultra-high resolution, minimalist but premium.` }]
@@ -154,8 +179,11 @@ export const generateGigImage = async (prompt: string, size: '1K' | '2K' | '4K' 
  */
 export const generateGigVideo = async (prompt: string, onProgress?: (msg: string) => void) => {
   try {
-    const dynamicAi = new GoogleGenAI({ apiKey: process.env.API_KEY });
-    let operation = await dynamicAi.models.generateVideos({
+    const ai = getAi();
+    const apiKey = getApiKey();
+    if (!ai || !apiKey) throw new Error("Missing GEMINI_API_KEY");
+
+    let operation = await ai.models.generateVideos({
       model: 'veo-3.1-fast-generate-preview',
       prompt: `A cinematic 5-second professional promotional clip for: ${prompt}. Elegant motion, high-end production value, minimal text overlays if any.`,
       config: {
@@ -178,11 +206,11 @@ export const generateGigVideo = async (prompt: string, onProgress?: (msg: string
       if (onProgress) onProgress(messages[msgIdx % messages.length]);
       msgIdx++;
       await new Promise(resolve => setTimeout(resolve, 10000));
-      operation = await dynamicAi.operations.getVideosOperation({ operation: operation });
+      operation = await ai.operations.getVideosOperation({ operation: operation });
     }
 
     const downloadLink = operation.response?.generatedVideos?.[0]?.video?.uri;
-    const res = await fetch(`${downloadLink}&key=${process.env.API_KEY}`);
+    const res = await fetch(`${downloadLink}&key=${apiKey}`);
     const blob = await res.blob();
     return URL.createObjectURL(blob);
   } catch (error) {
