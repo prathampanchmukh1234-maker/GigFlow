@@ -34,7 +34,7 @@ app.post("/create-checkout-session", async (req, res) => {
 
     const amount = numericPrice === 0 ? 50 : Math.round(numericPrice * 100);
     if (amount < 50) {
-      return res.status(400).json({ error: "Amount too small. Minimum is $0.50." });
+      return res.status(400).json({ error: "Amount too small. Minimum is ₹0.50." });
     }
 
     const session = await stripe.checkout.sessions.create({
@@ -43,7 +43,7 @@ app.post("/create-checkout-session", async (req, res) => {
       line_items: [
         {
           price_data: {
-            currency: "usd",
+            currency: "inr",
             product_data: {
               name: numericPrice === 0 ? `${title} (Free Gig Test Charge)` : title,
             },

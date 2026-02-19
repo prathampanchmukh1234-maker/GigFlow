@@ -17,7 +17,7 @@ export default function EditGig() {
     title: '',
     category: CATEGORIES[0],
     description: '',
-    price: 50,
+    price: 5000,
     deliveryTime: 3,
     imageUrl: ''
   });
@@ -108,12 +108,12 @@ export default function EditGig() {
             </select>
           </div>
           <div className="space-y-4">
-            <label className="block text-xs font-black text-gray-400 uppercase tracking-widest">Price ($)</label>
+            <label className="block text-xs font-black text-gray-400 uppercase tracking-widest">Price (₹)</label>
             <input 
               type="number" 
               className="w-full p-5 bg-gray-50 border border-gray-100 rounded-2xl focus:ring-4 focus:ring-emerald-500/10 focus:border-emerald-500 outline-none font-bold"
               required
-              min="5"
+              min="500"
               value={formData.price}
               onChange={(e) => setFormData({ ...formData, price: parseInt(e.target.value) || 0 })}
             />

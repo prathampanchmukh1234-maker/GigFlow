@@ -97,7 +97,7 @@ export default function Payment() {
       <div className="bg-white p-10 rounded-2xl shadow-xl text-center">
         <h2 className="text-2xl font-bold mb-4">Payment</h2>
         <p className="mb-4">{gig.title}</p>
-        <p className="text-xl font-bold mb-6">${price}</p>
+        <p className="text-xl font-bold mb-6">₹{price}</p>
 
         <button
           onClick={handlePay}

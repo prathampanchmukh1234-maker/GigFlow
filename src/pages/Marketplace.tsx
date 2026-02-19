@@ -154,7 +154,7 @@ export default function Marketplace() {
   
   const [selectedCategory, setSelectedCategory] = useState(initialCategory);
   const [searchQuery, setSearchQuery] = useState(initialQuery);
-  const [priceRange, setPriceRange] = useState<[number, number]>([0, 5000]);
+  const [priceRange, setPriceRange] = useState<[number, number]>([0, 100000]);
   const [isAiModalOpen, setIsAiModalOpen] = useState(false);
 
   useEffect(() => {
@@ -189,7 +189,7 @@ export default function Marketplace() {
   const resetFilters = () => {
     setSelectedCategory('All');
     setSearchQuery('');
-    setPriceRange([0, 5000]);
+    setPriceRange([0, 100000]);
   };
 
   return (
@@ -323,7 +323,7 @@ export default function Marketplace() {
                     <div className="mt-auto pt-6 border-t border-gray-50 flex justify-between items-center">
                       <div className="flex flex-col">
                         <span className="text-[9px] uppercase font-black text-gray-400 tracking-tighter mb-0.5">Starting at</span>
-                        <span className="text-2xl font-black text-gray-900 tracking-tight">${gig.price}</span>
+                        <span className="text-2xl font-black text-gray-900 tracking-tight">₹{gig.price}</span>
                       </div>
                       <Link to={`/gig/${gig.id}`} className="w-12 h-12 rounded-2xl bg-emerald-600 text-white flex items-center justify-center hover:bg-emerald-700 transition-all shadow-lg shadow-emerald-200 active:scale-95">
                         <i className="fas fa-arrow-right"></i>

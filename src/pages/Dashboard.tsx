@@ -164,7 +164,7 @@ export default function Dashboard() {
             />
             <StatCard 
               title={isAuthorizedAdmin ? "Marketplace Revenue" : (isFreelancer ? "Total Revenue" : "Total Spent")} 
-              value={`$${isAuthorizedAdmin ? orders.reduce((s,o)=>s+o.amount,0) : (isFreelancer ? earnings : orders.reduce((s,o) => s+o.amount, 0))}`} 
+              value={`₹${isAuthorizedAdmin ? orders.reduce((s,o)=>s+o.amount,0) : (isFreelancer ? earnings : orders.reduce((s,o) => s+o.amount, 0))}`} 
               icon="chart-line" 
               color="bg-blue-500" 
             />
@@ -181,7 +181,7 @@ export default function Dashboard() {
                   <div key={order.id} className="flex flex-col md:flex-row items-center justify-between p-6 hover:bg-gray-50 transition-colors rounded-2xl">
                     <div className="flex items-center space-x-6 w-full md:w-auto mb-4 md:mb-0">
                        <div className="w-14 h-14 bg-emerald-50 rounded-2xl flex items-center justify-center text-emerald-600 flex-shrink-0 font-black">
-                          <i className="fas fa-file-invoice-dollar text-xl"></i>
+                          <i className="fas fa-file-invoice text-xl"></i>
                        </div>
                        <div>
                           <p className="font-black text-gray-900 leading-tight mb-1">{order.gigTitle}</p>
@@ -191,7 +191,7 @@ export default function Dashboard() {
                     <div className="flex items-center justify-between w-full md:w-auto md:space-x-12">
                        <div className="text-center">
                           <p className="text-[10px] text-gray-400 uppercase font-black tracking-widest mb-1">Price</p>
-                          <p className="font-black text-gray-900">${order.amount}</p>
+                          <p className="font-black text-gray-900">₹{order.amount}</p>
                        </div>
                        <div className={`px-5 py-2 rounded-xl text-xs font-black uppercase tracking-widest ${
                           order.status === OrderStatus.COMPLETED ? 'bg-emerald-100 text-emerald-700' :
@@ -235,7 +235,7 @@ export default function Dashboard() {
                           </div>
                         </div>
                         <div className="flex justify-between items-end">
-                          <span className="text-xl font-black text-emerald-700">${gig.price}</span>
+                          <span className="text-xl font-black text-emerald-700">₹{gig.price}</span>
                           <div className="flex space-x-2">
                             <button 
                               type="button"

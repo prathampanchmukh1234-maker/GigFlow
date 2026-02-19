@@ -210,7 +210,7 @@ console.log("Filtered orders:", filteredOrders);
                       </div>
                     </td>
                     <td className="px-8 py-8">
-                      <span className="text-xl font-black text-gray-900">${order.amount}</span>
+                      <span className="text-xl font-black text-gray-900">₹{order.amount}</span>
                     </td>
                     <td className="px-8 py-8">
                       <span className={`px-4 py-1.5 rounded-xl text-[10px] font-black uppercase tracking-widest ${getStatusColor(order.status)}`}>

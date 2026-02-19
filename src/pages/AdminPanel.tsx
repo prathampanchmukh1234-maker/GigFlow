@@ -15,7 +15,7 @@ const AdminOverview = () => {
     const completedOrders = orders.filter(o => o.status === OrderStatus.COMPLETED).length;
 
     return [
-      { label: 'Total Platform Volume', value: `$${totalVolume.toLocaleString()}`, icon: 'chart-pie', color: 'text-emerald-600', bg: 'bg-emerald-50' },
+      { label: 'Total Platform Volume', value: `₹${totalVolume.toLocaleString()}`, icon: 'chart-pie', color: 'text-emerald-600', bg: 'bg-emerald-50' },
       { label: 'Active Services', value: activeGigs.toString(), icon: 'rocket', color: 'text-blue-600', bg: 'bg-blue-50' },
       { label: 'Platform Users', value: totalUsers.toString(), icon: 'users', color: 'text-purple-600', bg: 'bg-purple-50' },
       { label: 'Completed Success', value: completedOrders.toString(), icon: 'check-double', color: 'text-orange-600', bg: 'bg-orange-50' },
@@ -211,7 +211,7 @@ const GigModeration = () => {
                   <span className="text-sm font-bold text-gray-900">{g.sellerName}</span>
                 </td>
                 <td className="px-10 py-8">
-                  <span className="font-black text-gray-900">${g.price}</span>
+                  <span className="font-black text-gray-900">₹{g.price}</span>
                 </td>
                 <td className="px-10 py-8 text-right">
                   <button 
@@ -266,7 +266,7 @@ const PaymentLedger = () => {
                   <p className="font-black text-gray-900 text-sm">{o.gigTitle}</p>
                 </td>
                 <td className="px-10 py-8">
-                  <span className="font-black text-emerald-600">${o.amount}</span>
+                  <span className="font-black text-emerald-600">₹{o.amount}</span>
                 </td>
                 <td className="px-10 py-8">
                   <span className={`text-[9px] font-black uppercase tracking-widest px-3 py-1 rounded-full ${

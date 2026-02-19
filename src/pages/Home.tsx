@@ -267,7 +267,7 @@ const GigCard: React.FC<{ gig: any, isTrending?: boolean }> = ({ gig, isTrending
       <div className="mt-auto pt-8 border-t border-gray-50 flex justify-between items-center">
         <div>
           <span className="text-[10px] uppercase font-black text-gray-400 block mb-1 tracking-tighter">Starting at</span>
-          <span className="text-3xl font-black text-gray-900 tracking-tighter">${gig.price}</span>
+          <span className="text-3xl font-black text-gray-900 tracking-tighter">₹{gig.price}</span>
         </div>
         <Link to={`/gig/${gig.id}`} className="w-14 h-14 rounded-[1.5rem] bg-gray-900 text-white flex items-center justify-center hover:bg-emerald-600 transition-all shadow-xl hover:scale-110 active:scale-95">
           <i className="fas fa-arrow-right text-lg"></i>

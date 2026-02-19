@@ -13,7 +13,7 @@ const gigSchema = z.object({
   title: z.string().min(10, 'Title must be at least 10 characters').max(100, 'Title too long'),
   category: z.string().min(1, 'Category is required'),
   description: z.string().min(50, 'Description should be at least 50 characters for better visibility'),
-  price: z.number().min(5, 'Minimum price is $5'),
+  price: z.number().min(500, 'Minimum price is ₹500'),
   deliveryTime: z.number().min(1, 'Delivery must be at least 1 day'),
   imageUrl: z.string().url('Please enter a valid image URL').optional().or(z.literal('')),
 });
@@ -29,7 +29,7 @@ export default function CreateGig() {
     resolver: zodResolver(gigSchema),
     defaultValues: {
       category: CATEGORIES[0],
-      price: 50,
+      price: 5000,
       deliveryTime: 3,
     }
   });
@@ -106,7 +106,7 @@ export default function CreateGig() {
             </select>
           </div>
           <div className="space-y-4">
-            <label className="block text-xs font-black text-gray-400 uppercase tracking-widest">Price ($)</label>
+            <label className="block text-xs font-black text-gray-400 uppercase tracking-widest">Price (₹)</label>
             <input 
               {...register('price', { valueAsNumber: true })}
               type="number" 

@@ -462,7 +462,7 @@ localStorage.setItem("pendingOrder", JSON.stringify(newOrder));
                   <h3 className="font-black text-gray-900 text-xl tracking-tight uppercase">{activeTab} Hub Package</h3>
                   <div className="flex flex-col items-end">
                     <span className="text-4xl font-black text-gray-900">
-                      ${activeTab === 'Basic' ? gig.price : activeTab === 'Standard' ? Math.round(gig.price * 2.5) : Math.round(gig.price * 5)}
+                      ₹{activeTab === 'Basic' ? gig.price : activeTab === 'Standard' ? Math.round(gig.price * 2.5) : Math.round(gig.price * 5)}
                     </span>
                   </div>
                 </div>
