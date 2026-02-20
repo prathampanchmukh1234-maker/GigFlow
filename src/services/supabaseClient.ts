@@ -5,8 +5,8 @@ const supabaseAnonKey = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYm
 
 export const supabase = createClient(supabaseUrl, supabaseAnonKey, {
   auth: {
-    // Use implicit flow for browser SPA + HashRouter stability in OAuth redirects.
-    flowType: 'implicit',
+    // PKCE is the expected flow for `?code=...` OAuth callbacks.
+    flowType: 'pkce',
     persistSession: true,
     autoRefreshToken: true,
     detectSessionInUrl: true

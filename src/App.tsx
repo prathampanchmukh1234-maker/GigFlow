@@ -270,6 +270,18 @@ export default function App() {
     const hashQueryIndex = rawHash.indexOf('?');
     const hashQuery = hashQueryIndex >= 0 ? rawHash.slice(hashQueryIndex + 1) : '';
     const hashQueryParams = new URLSearchParams(hashQuery);
+    const authError =
+      url.searchParams.get('error_description') ||
+      url.searchParams.get('error') ||
+      hashQueryParams.get('error_description') ||
+      hashQueryParams.get('error');
+
+    if (authError) {
+      const decoded = decodeURIComponent(authError.replace(/\+/g, ' '));
+      setNotification({ msg: `Sign-in failed: ${decoded}`, type: 'error' });
+      window.history.replaceState({}, document.title, `${window.location.pathname}#/auth?mode=login`);
+    }
+
     const authCode = url.searchParams.get('code') || hashQueryParams.get('code');
 
     if (authCode) {
@@ -282,6 +294,7 @@ export default function App() {
         );
       } else {
         console.error("OAuth code exchange failed:", error.message);
+        setNotification({ msg: `Sign-in failed: ${error.message}`, type: 'error' });
       }
     }
 
