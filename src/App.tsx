@@ -262,6 +262,8 @@ export default function App() {
 
   useEffect(() => {
   const initApp = async () => {
+    let oauthExchangeError: string | null = null;
+
     // Handle callback code from either query string or hash query.
     const url = new URL(window.location.href);
     const rawHash = window.location.hash?.startsWith('#')
@@ -294,7 +296,7 @@ export default function App() {
         );
       } else {
         console.error("OAuth code exchange failed:", error.message);
-        setNotification({ msg: `Sign-in failed: ${error.message}`, type: 'error' });
+        oauthExchangeError = error.message;
       }
     }
 
@@ -321,17 +323,30 @@ export default function App() {
     // Wait for OAuth session restore (important)
     await new Promise(resolve => setTimeout(resolve, 300));
 
-    let { data: { session } } = await supabase.auth.getSession();
-    let currentUser = session?.user;
+    let currentUser: any = null;
+
+    // Retry session recovery a few times to absorb provider redirect timing.
+    for (let i = 0; i < 3; i++) {
+      const { data: { session } } = await supabase.auth.getSession();
+      currentUser = session?.user || null;
+      if (currentUser) break;
+      await new Promise(resolve => setTimeout(resolve, 250));
+    }
 
     // If session not ready yet (Google redirect case)
     if (!currentUser) {
-      const { data } = await supabase.auth.getUser();
-      currentUser = data.user;
+      for (let i = 0; i < 3; i++) {
+        const { data } = await supabase.auth.getUser();
+        currentUser = data.user || null;
+        if (currentUser) break;
+        await new Promise(resolve => setTimeout(resolve, 250));
+      }
     }
 
     if (currentUser) {
       await syncProfile(currentUser);
+    } else if (oauthExchangeError) {
+      setNotification({ msg: `Sign-in failed: ${oauthExchangeError}`, type: 'error' });
     }
 
        
