@@ -107,7 +107,11 @@ const Navbar = () => {
     Object.keys(localStorage)
       .filter((key) => key.startsWith('sb-') && key.endsWith('-auth-token'))
       .forEach((key) => localStorage.removeItem(key));
+    Object.keys(sessionStorage)
+      .filter((key) => key.startsWith('sb-') && key.endsWith('-auth-token'))
+      .forEach((key) => sessionStorage.removeItem(key));
     localStorage.removeItem("supabase.auth.token");
+    sessionStorage.removeItem("supabase.auth.token");
 
     // Hard redirect prevents stale in-memory auth state from showing logged in UI.
     window.location.assign(`${window.location.origin}/#/auth?mode=login`);
@@ -119,7 +123,11 @@ const Navbar = () => {
     Object.keys(localStorage)
       .filter((key) => key.startsWith('sb-') && key.endsWith('-auth-token'))
       .forEach((key) => localStorage.removeItem(key));
+    Object.keys(sessionStorage)
+      .filter((key) => key.startsWith('sb-') && key.endsWith('-auth-token'))
+      .forEach((key) => sessionStorage.removeItem(key));
     localStorage.removeItem("supabase.auth.token");
+    sessionStorage.removeItem("supabase.auth.token");
     window.location.assign(`${window.location.origin}/#/auth?mode=login`);
   }
 };

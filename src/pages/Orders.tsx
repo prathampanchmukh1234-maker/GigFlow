@@ -34,7 +34,7 @@ const OrderTracker = ({ status }: { status: OrderStatus }) => {
   );
 };
 
-const ReviewModal = ({ order, isOpen, onClose }: { order: any, isOpen: boolean, onClose: () => void }) => {
+const ReviewModal = ({ order, isOpen, onClose, onSubmitted }: { order: any, isOpen: boolean, onClose: () => void, onSubmitted: (orderId: string) => void }) => {
   const { user, addReview } = useApp();
   const [rating, setRating] = useState(5);
   const [comment, setComment] = useState('');
@@ -59,6 +59,7 @@ const ReviewModal = ({ order, isOpen, onClose }: { order: any, isOpen: boolean, 
     };
     
     addReview(newReview);
+    onSubmitted(order.id);
     onClose();
   };
 
@@ -171,6 +172,12 @@ console.log("Filtered orders:", filteredOrders);
     } else {
       if (currentStatus === OrderStatus.DELIVERED) updateOrderStatus(orderId, OrderStatus.COMPLETED);
     }
+  };
+
+  const handleReviewSubmitted = (orderId: string) => {
+    setDbOrders(prev =>
+      prev.map(order => (order.id === orderId ? { ...order, review_id: 'local_review' } : order))
+    );
   };
 
   return (
@@ -304,7 +311,8 @@ console.log("Filtered orders:", filteredOrders);
       <ReviewModal 
         isOpen={!!selectedReviewOrder} 
         order={selectedReviewOrder} 
-        onClose={() => setSelectedReviewOrder(null)} 
+        onClose={() => setSelectedReviewOrder(null)}
+        onSubmitted={handleReviewSubmitted}
       />
     </div>
   );
