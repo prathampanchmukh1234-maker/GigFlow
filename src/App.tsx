@@ -262,6 +262,20 @@ export default function App() {
 
   useEffect(() => {
   const initApp = async () => {
+    // Handle PKCE callback code explicitly (production OAuth callback: ?code=...)
+    const url = new URL(window.location.href);
+    const authCode = url.searchParams.get('code');
+    if (authCode) {
+      const { error } = await supabase.auth.exchangeCodeForSession(authCode);
+      if (!error) {
+        window.history.replaceState(
+          {},
+          document.title,
+          `${window.location.pathname}#/`
+        );
+      }
+    }
+
     // Handle OAuth hash tokens explicitly (HashRouter + OAuth callback can collide on `#`)
     const hash = window.location.hash?.startsWith('#')
       ? window.location.hash.slice(1)
