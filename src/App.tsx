@@ -262,9 +262,16 @@ export default function App() {
 
   useEffect(() => {
   const initApp = async () => {
-    // Handle PKCE callback code explicitly (production OAuth callback: ?code=...)
+    // Handle callback code from either query string or hash query.
     const url = new URL(window.location.href);
-    const authCode = url.searchParams.get('code');
+    const rawHash = window.location.hash?.startsWith('#')
+      ? window.location.hash.slice(1)
+      : '';
+    const hashQueryIndex = rawHash.indexOf('?');
+    const hashQuery = hashQueryIndex >= 0 ? rawHash.slice(hashQueryIndex + 1) : '';
+    const hashQueryParams = new URLSearchParams(hashQuery);
+    const authCode = url.searchParams.get('code') || hashQueryParams.get('code');
+
     if (authCode) {
       const { error } = await supabase.auth.exchangeCodeForSession(authCode);
       if (!error) {
@@ -273,14 +280,13 @@ export default function App() {
           document.title,
           `${window.location.pathname}#/`
         );
+      } else {
+        console.error("OAuth code exchange failed:", error.message);
       }
     }
 
     // Handle OAuth hash tokens explicitly (HashRouter + OAuth callback can collide on `#`)
-    const hash = window.location.hash?.startsWith('#')
-      ? window.location.hash.slice(1)
-      : '';
-    const hashParams = new URLSearchParams(hash);
+    const hashParams = new URLSearchParams(rawHash);
     const accessToken = hashParams.get('access_token');
     const refreshToken = hashParams.get('refresh_token');
 
