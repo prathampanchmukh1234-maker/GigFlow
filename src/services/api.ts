@@ -7,7 +7,14 @@ import { supabase } from './supabaseClient';
 
 // Helper to check if Supabase is actually configured
 const isConfigured = () => {
-  return process.env.SUPABASE_URL && process.env.SUPABASE_ANON_KEY;
+  const viteUrl = (import.meta as any)?.env?.VITE_SUPABASE_URL;
+  const viteAnon = (import.meta as any)?.env?.VITE_SUPABASE_ANON_KEY;
+  const nodeUrl = (typeof process !== 'undefined' ? process.env?.SUPABASE_URL : undefined);
+  const nodeAnon = (typeof process !== 'undefined' ? process.env?.SUPABASE_ANON_KEY : undefined);
+
+  // Frontend should primarily rely on Vite env vars; node env fallback keeps compatibility.
+  // If neither is present, allow operations and let the Supabase client report real errors.
+  return Boolean((viteUrl && viteAnon) || (nodeUrl && nodeAnon) || (!viteUrl && !viteAnon && !nodeUrl && !nodeAnon));
 };
 
 export const api = {
