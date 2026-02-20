@@ -75,7 +75,7 @@ const Toast = ({ message, type, onClose }: { message: string, type: string, onCl
 );
 
 const Navbar = () => {
-  const { user, setUser, messages, isDbConnected } = useApp();
+  const { user, setUser, messages, isDbConnected, notify } = useApp();
   const navigate = useNavigate();
   const location = useLocation();
   const [scrollProgress, setScrollProgress] = useState(0);
@@ -94,11 +94,10 @@ const Navbar = () => {
 
   const handleLogout = async () => {
   try {
-    const { error } = await supabase.auth.signOut({ scope: 'global' });
-
+    // Prefer local sign-out for reliability in browser SPA logout.
+    const { error } = await supabase.auth.signOut({ scope: 'local' });
     if (error) {
-      console.error("Logout error:", error.message);
-      return;
+      console.error("Logout warning:", error.message);
     }
 
     // Clear React state
@@ -110,11 +109,18 @@ const Navbar = () => {
       .forEach((key) => localStorage.removeItem(key));
     localStorage.removeItem("supabase.auth.token");
 
-    // Navigate instead of full reload
-    navigate("/auth?mode=login");
+    // Hard redirect prevents stale in-memory auth state from showing logged in UI.
+    window.location.assign(`${window.location.origin}/#/auth?mode=login`);
 
   } catch (err) {
     console.error("Logout failed:", err);
+    // Fallback local clear even if Supabase request fails.
+    setUser(null);
+    Object.keys(localStorage)
+      .filter((key) => key.startsWith('sb-') && key.endsWith('-auth-token'))
+      .forEach((key) => localStorage.removeItem(key));
+    localStorage.removeItem("supabase.auth.token");
+    window.location.assign(`${window.location.origin}/#/auth?mode=login`);
   }
 };
 
@@ -522,25 +528,39 @@ else {
   };
 
   const addReview = async (review: Review) => {
-  const { data, error } = await supabase
+  const basePayload = {
+    gig_id: review.gigId,
+    user_id: review.userId,
+    rating: review.rating,
+    comment: review.comment,
+    created_at: new Date().toISOString()
+  };
+
+  const fullPayload = {
+    ...basePayload,
+    order_id: review.orderId,
+    user_name: review.userName,
+    user_avatar: review.userAvatar
+  };
+
+  let insertResult = await supabase
     .from("reviews")
-    .insert([
-      {
-        gig_id: review.gigId,
-        order_id: review.orderId,
-        user_id: review.userId,
-        user_name: review.userName,
-        user_avatar: review.userAvatar,
-        rating: review.rating,
-        comment: review.comment,
-        created_at: new Date().toISOString()
-      }
-    ])
+    .insert([fullPayload])
     .select();
+
+  // Retry with minimal schema if optional columns don't exist in DB.
+  if (insertResult.error) {
+    insertResult = await supabase
+      .from("reviews")
+      .insert([basePayload])
+      .select();
+  }
+
+  const { data, error } = insertResult;
 
   if (error) {
     console.error("Review insert error:", error.message);
-    notify("Failed to save review", "error");
+    notify(`Failed to save review: ${error.message}`, "error");
     return;
   }
 
@@ -548,7 +568,10 @@ else {
     const newReview = {
       id: data[0].id,
       gigId: data[0].gig_id,
+      orderId: data[0].order_id || review.orderId || 'direct',
       userId: data[0].user_id,
+      userName: data[0].user_name || review.userName || 'User',
+      userAvatar: data[0].user_avatar || review.userAvatar,
       rating: data[0].rating,
       comment: data[0].comment,
       createdAt: data[0].created_at
@@ -556,6 +579,9 @@ else {
 
     // IMPORTANT: update state immediately
     setReviews(prev => [newReview, ...prev]);
+    setOrders(prev =>
+      prev.map(o => (o.id === review.orderId ? { ...o, reviewId: newReview.id } : o))
+    );
   }
 
   notify("Feedback submitted successfully", "success");
