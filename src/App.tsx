@@ -94,7 +94,7 @@ const Navbar = () => {
 
   const handleLogout = async () => {
   try {
-    const { error } = await supabase.auth.signOut();
+    const { error } = await supabase.auth.signOut({ scope: 'global' });
 
     if (error) {
       console.error("Logout error:", error.message);
@@ -104,11 +104,14 @@ const Navbar = () => {
     // Clear React state
     setUser(null);
 
-    // Clear local storage (important)
+    // Clear Supabase persisted auth keys
+    Object.keys(localStorage)
+      .filter((key) => key.startsWith('sb-') && key.endsWith('-auth-token'))
+      .forEach((key) => localStorage.removeItem(key));
     localStorage.removeItem("supabase.auth.token");
 
     // Navigate instead of full reload
-    navigate("/");
+    navigate("/auth?mode=login");
 
   } catch (err) {
     console.error("Logout failed:", err);
@@ -524,7 +527,10 @@ else {
     .insert([
       {
         gig_id: review.gigId,
+        order_id: review.orderId,
         user_id: review.userId,
+        user_name: review.userName,
+        user_avatar: review.userAvatar,
         rating: review.rating,
         comment: review.comment,
         created_at: new Date().toISOString()

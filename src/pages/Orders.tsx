@@ -48,7 +48,7 @@ const ReviewModal = ({ order, isOpen, onClose }: { order: any, isOpen: boolean, 
     
     const newReview: Review = {
       id: 'rev_' + Math.random().toString(36).substr(2, 9),
-      gigId: order.gigId,
+      gigId: order.gig_id || order.gigId,
       orderId: order.id,
       userId: user.id,
       userName: user.name,
@@ -126,6 +126,7 @@ export default function Orders() {
   if (!user) return null;
 
   const isFreelancer = user.role === UserRole.FREELANCER;
+  const [selectedReviewOrder, setSelectedReviewOrder] = useState<any | null>(null);
 
   const [dbOrders, setDbOrders] = useState<any[]>([]);
 
@@ -260,7 +261,7 @@ console.log("Filtered orders:", filteredOrders);
                                   Approve
                                 </button>
                               )}
-                              {order.status === OrderStatus.COMPLETED && !order.reviewId && (
+                              {order.status === OrderStatus.COMPLETED && !(order.review_id || order.reviewId) && (
                                 <button 
                                   onClick={() => setSelectedReviewOrder(order)}
                                   className="px-6 py-2.5 bg-white border border-emerald-600 text-emerald-600 rounded-xl font-black text-xs uppercase tracking-widest hover:bg-emerald-50 transition-all"
@@ -270,7 +271,7 @@ console.log("Filtered orders:", filteredOrders);
                               )}
                             </>
                           )}
-                          {order.status === OrderStatus.COMPLETED && order.reviewId && (
+                          {order.status === OrderStatus.COMPLETED && (order.review_id || order.reviewId) && (
                             <div className="flex items-center space-x-2 text-emerald-600">
                               <i className="fas fa-check-double"></i>
                               <span className="text-[10px] font-black uppercase tracking-widest">Reviewed</span>
