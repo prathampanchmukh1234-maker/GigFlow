@@ -228,6 +228,18 @@ export default function App() {
   const [isDbConnected, setIsDbConnected] = useState(true);
   const [notification, setNotification] = useState<{msg: string, type: 'success' | 'error' | 'info'} | null>(null);
 
+  const mapSessionUserToAppUser = (sessionUser: any): User => {
+    const metadata = sessionUser?.user_metadata || {};
+    return {
+      id: sessionUser.id,
+      name: metadata?.name || metadata?.full_name || sessionUser.email?.split('@')[0] || 'User',
+      email: sessionUser.email || '',
+      role: (metadata?.role as UserRole) || UserRole.CLIENT,
+      avatar: metadata?.avatar_url || FALLBACK_AVATAR(sessionUser.id),
+      bio: ''
+    };
+  };
+
   const syncProfile = async (sessionUser: any) => {
     try {
       let profile = await api.getProfile(sessionUser.id).catch(() => null);
@@ -257,6 +269,8 @@ export default function App() {
       });
     } catch (e) {
       console.error("Failed to sync profile", e);
+      // Keep user signed in even if profile/database sync fails.
+      setUser(mapSessionUserToAppUser(sessionUser));
     }
   };
 
@@ -344,6 +358,7 @@ export default function App() {
     }
 
     if (currentUser) {
+      setUser(mapSessionUserToAppUser(currentUser));
       await syncProfile(currentUser);
     } else if (oauthExchangeError) {
       setNotification({ msg: `Sign-in failed: ${oauthExchangeError}`, type: 'error' });
@@ -409,6 +424,7 @@ else {
 
     if (session?.user) {
       // Handles SIGNED_IN + INITIAL_SESSION
+      setUser(mapSessionUserToAppUser(session.user));
       await syncProfile(session.user);
     }
 
