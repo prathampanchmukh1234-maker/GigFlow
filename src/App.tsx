@@ -262,6 +262,29 @@ export default function App() {
 
   useEffect(() => {
   const initApp = async () => {
+    // Handle OAuth hash tokens explicitly (HashRouter + OAuth callback can collide on `#`)
+    const hash = window.location.hash?.startsWith('#')
+      ? window.location.hash.slice(1)
+      : '';
+    const hashParams = new URLSearchParams(hash);
+    const accessToken = hashParams.get('access_token');
+    const refreshToken = hashParams.get('refresh_token');
+
+    if (accessToken && refreshToken) {
+      const { error } = await supabase.auth.setSession({
+        access_token: accessToken,
+        refresh_token: refreshToken
+      });
+
+      if (!error) {
+        window.history.replaceState(
+          {},
+          document.title,
+          `${window.location.pathname}${window.location.search}#/`
+        );
+      }
+    }
+
     // Wait for OAuth session restore (important)
     await new Promise(resolve => setTimeout(resolve, 300));
 
