@@ -1,5 +1,4 @@
-
-import React, { useMemo, useEffect, useState } from 'react';
+import React, { useMemo, useState } from 'react';
 import { useParams, useNavigate, Link } from 'react-router-dom';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
@@ -11,7 +10,6 @@ import { useApp } from "../App";
 
 import { OrderStatus, Review } from '../types';
 import { FALLBACK_IMAGE, FALLBACK_AVATAR } from '../constants';
-import { supabase } from '../services/supabaseClient';
 
 import axios from "axios";
 
@@ -35,44 +33,10 @@ type ReviewFormValues = z.infer<typeof reviewSchema>;
 
 export default function GigDetails() {
   const { id } = useParams();
-  const { gigs, user, addOrder, deleteGig, orders, notify } = useApp();
+  const { gigs, user, addOrder, deleteGig, orders, addReview, reviews, notify } = useApp();
   const navigate = useNavigate();
   const [activeTab, setActiveTab] = useState('Basic');
   const [hoverRating, setHoverRating] = useState(0);
-  
-  // 1. New state for database reviews
-  const [dbReviews, setDbReviews] = useState<Review[]>([]);
-
-  // 2. Fetch function using Supabase
-  const fetchReviews = async () => {
-    if (!id) return;
-    const { data, error } = await supabase
-      .from("reviews")
-      .select("*")
-      .eq("gig_id", id)
-      .order("created_at", { ascending: false });
-
-    if (!error && data) {
-      // Map DB fields to frontend fields
-      const mapped: Review[] = data.map(r => ({
-        id: r.id,
-        gigId: r.gig_id,
-        userId: r.user_id,
-        userName: r.user_name,
-        userAvatar: r.user_avatar,
-        rating: r.rating,
-        comment: r.comment,
-        createdAt: r.created_at,
-        orderId: 'direct'
-      }));
-      setDbReviews(mapped);
-    }
-  };
-
-  // 3. Effect to fetch on load
-  useEffect(() => {
-    fetchReviews();
-  }, [id]);
 
   const gig = gigs.find(g => g.id === id);
 
@@ -83,10 +47,10 @@ export default function GigDetails() {
 
   const selectedRating = watch('rating');
 
-  // 4. Update memo to use dbReviews instead of context reviews
   const gigReviews = useMemo(() => {
-    return dbReviews;
-  }, [dbReviews]);
+    const normalizedGigId = String(gig?.id ?? '').trim().toLowerCase();
+    return reviews.filter((review) => String(review.gigId ?? '').trim().toLowerCase() === normalizedGigId);
+  }, [gig?.id, reviews]);
 
   const hasAlreadyReviewed = useMemo(() => {
     return user && gigReviews.some(r => r.userId === user.id);
@@ -100,6 +64,11 @@ export default function GigDetails() {
     });
     return stats;
   }, [gigReviews]);
+
+  const displayReviewsCount = gigReviews.length;
+  const displayRating = displayReviewsCount > 0
+    ? Number((gigReviews.reduce((sum, review) => sum + review.rating, 0) / displayReviewsCount).toFixed(1))
+    : 0;
 
   if (!gig) {
     return <div className="p-10 text-center text-gray-400 font-black uppercase tracking-widest py-40">Service Not Found</div>;
@@ -184,29 +153,31 @@ localStorage.setItem("pendingOrder", JSON.stringify(newOrder));
 
 
 
-  // 5. Update onSubmit to refresh list automatically
+  // 5. Update onSubmit to use context addReview function for consistent behavior
   const onSubmitReview = async (data: ReviewFormValues) => {
     if (!user || !gig) return;
     
-    const { error } = await supabase
-      .from("reviews")
-      .insert([
-        {
-          gig_id: gig.id,
-          user_id: user.id,
-          user_name: user.name,
-          user_avatar: user.avatar,
-          rating: data.rating,
-          comment: data.comment
-        }
-      ]);
-
-    if (error) {
-      notify("Failed to submit review", "error");
-    } else {
+    try {
+      const newReview: Review = {
+        id: 'rev_' + Math.random().toString(36).substr(2, 9),
+        gigId: gig.id,
+        orderId: 'direct',
+        userId: user.id,
+        userName: user.name,
+        userAvatar: user.avatar,
+        rating: data.rating,
+        comment: data.comment,
+        createdAt: new Date().toISOString()
+      };
+      
+      // Use context addReview function which handles both DB insert and state update
+      await addReview(newReview);
+      
       notify("Feedback submitted successfully!", "success");
       reset();
-      fetchReviews(); // Refresh list immediately
+    } catch (err: any) {
+      console.error("Review submission error:", err);
+      notify(err?.message || "Failed to submit review. Please try again.", "error");
     }
   };
 
@@ -269,8 +240,8 @@ localStorage.setItem("pendingOrder", JSON.stringify(newOrder));
                 </div>
                 <div className="flex items-center text-yellow-500 text-xs font-black mt-1">
                   <i className="fas fa-star mr-2"></i>
-                  <span className="text-gray-900">{gig.rating}</span>
-                  <span className="text-gray-400 ml-2 uppercase tracking-tighter">({gig.reviewsCount} verified reviews)</span>
+                  <span className="text-gray-900">{displayRating}</span>
+                  <span className="text-gray-400 ml-2 uppercase tracking-tighter">({displayReviewsCount} verified reviews)</span>
                 </div>
               </div>
             </div>
@@ -385,11 +356,11 @@ localStorage.setItem("pendingOrder", JSON.stringify(newOrder));
             
             <div className="grid grid-cols-1 md:grid-cols-2 gap-12 mb-16 bg-white p-12 rounded-[3rem] border border-gray-100 shadow-sm relative overflow-hidden">
               <div className="flex flex-col items-center justify-center text-center md:border-r md:border-gray-50 md:pr-12">
-                <p className="text-7xl font-black text-gray-900 mb-4">{gig.rating}</p>
+                <p className="text-7xl font-black text-gray-900 mb-4">{displayRating}</p>
                 <div className="flex space-x-1.5 text-yellow-400 mb-4 text-xl">
-                  {[1, 2, 3, 4, 5].map(s => <i key={s} className={`fa-star ${s <= Math.floor(gig.rating) ? 'fas' : 'far text-gray-100'}`}></i>)}
+                  {[1, 2, 3, 4, 5].map(s => <i key={s} className={`fa-star ${s <= Math.floor(displayRating) ? 'fas' : 'far text-gray-100'}`}></i>)}
                 </div>
-                <p className="text-[10px] font-black text-gray-400 uppercase tracking-widest">{gig.reviewsCount} TOTAL REVIEWS</p>
+                <p className="text-[10px] font-black text-gray-400 uppercase tracking-widest">{displayReviewsCount} TOTAL REVIEWS</p>
               </div>
               
               <div className="space-y-4">

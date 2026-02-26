@@ -1,8 +1,7 @@
-
-import React, { useState, useEffect, createContext, useContext } from 'react';
+import React, { useState, useEffect, useRef, createContext, useContext } from 'react';
 import { HashRouter, Routes, Route, Link, useNavigate, useLocation } from 'react-router-dom';
 import { User, Gig, UserRole, Order, OrderStatus, Message, Review } from '../types';
-import { MOCK_GIGS, FALLBACK_AVATAR, MOCK_REVIEWS, MOCK_ORDERS, MOCK_USERS } from '../constants';
+import { MOCK_GIGS, FALLBACK_AVATAR, MOCK_ORDERS, MOCK_USERS } from '../constants';
 import { api } from './services/api'; 
 import { supabase } from './services/supabaseClient';
 import Home from './pages/Home';
@@ -41,7 +40,7 @@ interface AppContextType {
   messages: Message[];
   sendMessage: (receiverId: string, text: string) => void;
   reviews: Review[];
-  addReview: (review: Review) => void;
+  addReview: (review: Review) => Promise<void>;
   isDbConnected: boolean;
   notify: (msg: string, type?: 'success' | 'error' | 'info') => void;
 }
@@ -80,6 +79,8 @@ const Navbar = () => {
   const location = useLocation();
   const [scrollProgress, setScrollProgress] = useState(0);
   const [isScrolled, setIsScrolled] = useState(false);
+  const [isMenuOpen, setIsMenuOpen] = useState(false);
+  const menuRef = useRef<HTMLDivElement | null>(null);
 
   useEffect(() => {
     const handleScroll = () => {
@@ -92,47 +93,44 @@ const Navbar = () => {
     return () => window.removeEventListener('scroll', handleScroll);
   }, []);
 
+  useEffect(() => {
+    const handleOutsideClick = (event: MouseEvent) => {
+      if (menuRef.current && !menuRef.current.contains(event.target as Node)) {
+        setIsMenuOpen(false);
+      }
+    };
+
+    document.addEventListener('mousedown', handleOutsideClick);
+    return () => document.removeEventListener('mousedown', handleOutsideClick);
+  }, []);
+
+  useEffect(() => {
+    setIsMenuOpen(false);
+  }, [location.pathname]);
+
   const handleLogout = async () => {
-  try {
-    // Prefer local sign-out for reliability in browser SPA logout.
-    const { error } = await supabase.auth.signOut({ scope: 'local' });
-    if (error) {
-      console.error("Logout warning:", error.message);
-    }
-
-    // Clear React state
+    // Always clear local app/auth state first so logout button is instant.
     setUser(null);
+    setIsMenuOpen(false);
 
-    // Clear Supabase persisted auth keys
     Object.keys(localStorage)
-      .filter((key) => key.startsWith('sb-') && key.endsWith('-auth-token'))
+      .filter((key) => key.startsWith('sb-') || key.includes('supabase.auth'))
       .forEach((key) => localStorage.removeItem(key));
     Object.keys(sessionStorage)
-      .filter((key) => key.startsWith('sb-') && key.endsWith('-auth-token'))
+      .filter((key) => key.startsWith('sb-') || key.includes('supabase.auth'))
       .forEach((key) => sessionStorage.removeItem(key));
     localStorage.removeItem("supabase.auth.token");
     sessionStorage.removeItem("supabase.auth.token");
+    sessionStorage.setItem('force_logout', '1');
+    window.location.hash = '#/auth?mode=login&force_logout=1';
 
-    // Hard redirect prevents stale in-memory auth state from showing logged in UI.
-    window.location.assign(`${window.location.origin}/#/auth?mode=login`);
+    // Fire-and-forget server-side signout; do not block UI/logout redirect.
+    supabase.auth.signOut({ scope: 'global' }).catch((err) => {
+      console.error("Logout warning:", err);
+    });
 
-  } catch (err) {
-    console.error("Logout failed:", err);
-    // Fallback local clear even if Supabase request fails.
-    setUser(null);
-    Object.keys(localStorage)
-      .filter((key) => key.startsWith('sb-') && key.endsWith('-auth-token'))
-      .forEach((key) => localStorage.removeItem(key));
-    Object.keys(sessionStorage)
-      .filter((key) => key.startsWith('sb-') && key.endsWith('-auth-token'))
-      .forEach((key) => sessionStorage.removeItem(key));
-    localStorage.removeItem("supabase.auth.token");
-    sessionStorage.removeItem("supabase.auth.token");
-    window.location.assign(`${window.location.origin}/#/auth?mode=login`);
-  }
-};
-
-
+    window.location.reload();
+  };
 
   const unreadCount = messages.filter(m => m.receiverId === user?.id && !m.isRead).length;
   const isTransparent = location.pathname === '/' && !isScrolled;
@@ -176,22 +174,29 @@ const Navbar = () => {
                     <i className="fas fa-envelope text-xl"></i>
                     {unreadCount > 0 && <span className="absolute top-1 right-1 w-5 h-5 bg-red-500 text-white text-[10px] font-black flex items-center justify-center rounded-full border-2 border-white">{unreadCount}</span>}
                   </Link>
-                  <div className="relative group">
-                    <button className="flex items-center space-x-3 p-1.5 pr-4 rounded-2xl transition border border-transparent bg-gray-50 hover:bg-gray-100 text-gray-900">
+                  <div ref={menuRef} className="relative">
+                    <button
+                      onClick={() => setIsMenuOpen(prev => !prev)}
+                      className="flex items-center space-x-3 p-1.5 pr-4 rounded-2xl transition border border-transparent bg-gray-50 hover:bg-gray-100 text-gray-900"
+                    >
                       <img src={user.avatar} className="w-9 h-9 rounded-xl object-cover shadow-sm" alt="avatar" onError={(e) => (e.currentTarget.src = FALLBACK_AVATAR(user.id))} />
                       <div className="hidden sm:block text-left">
                         <p className="text-xs font-black leading-none mb-1">{user.name}</p>
                         <p className="text-[10px] uppercase font-bold text-gray-400">{user.role.toLowerCase()}</p>
                       </div>
                     </button>
-                    <div className="absolute right-0 w-56 mt-3 bg-white border border-gray-100 rounded-2xl shadow-2xl opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all duration-200 z-50 p-2 origin-top-right text-gray-900">
-                      <Link to="/dashboard" className="flex items-center px-4 py-3 text-sm font-bold text-gray-700 hover:bg-emerald-50 hover:text-emerald-600 rounded-xl transition"><i className="fas fa-th-large mr-3 opacity-50"></i> Dashboard</Link>
-                      <Link to="/orders" className="flex items-center px-4 py-3 text-sm font-bold text-gray-700 hover:bg-emerald-50 hover:text-emerald-600 rounded-xl transition"><i className="fas fa-shopping-bag mr-3 opacity-50"></i> Orders</Link>
+                    <div
+                      className={`absolute right-0 w-56 mt-3 bg-white border border-gray-100 rounded-2xl shadow-2xl transition-all duration-200 z-50 p-2 origin-top-right text-gray-900 ${
+                        isMenuOpen ? 'opacity-100 visible' : 'opacity-0 invisible pointer-events-none'
+                      }`}
+                    >
+                      <Link to="/dashboard" onClick={() => setIsMenuOpen(false)} className="flex items-center px-4 py-3 text-sm font-bold text-gray-700 hover:bg-emerald-50 hover:text-emerald-600 rounded-xl transition"><i className="fas fa-th-large mr-3 opacity-50"></i> Dashboard</Link>
+                      <Link to="/orders" onClick={() => setIsMenuOpen(false)} className="flex items-center px-4 py-3 text-sm font-bold text-gray-700 hover:bg-emerald-50 hover:text-emerald-600 rounded-xl transition"><i className="fas fa-shopping-bag mr-3 opacity-50"></i> Orders</Link>
                       {isAuthorizedAdmin && (
-                         <Link to="/admin" className="flex items-center px-4 py-3 text-sm font-bold text-emerald-600 hover:bg-emerald-50 rounded-xl transition"><i className="fas fa-user-shield mr-3 opacity-50"></i> Admin Panel</Link>
+                         <Link to="/admin" onClick={() => setIsMenuOpen(false)} className="flex items-center px-4 py-3 text-sm font-bold text-emerald-600 hover:bg-emerald-50 rounded-xl transition"><i className="fas fa-user-shield mr-3 opacity-50"></i> Admin Panel</Link>
                       )}
                       <hr className="my-2 border-gray-50" />
-                      <button onClick={handleLogout} className="flex items-center w-full text-left px-4 py-3 text-sm font-bold text-red-500 hover:bg-red-50 rounded-xl transition"><i className="fas fa-sign-out-alt mr-3 opacity-50"></i> Logout</button>
+                      <button onClick={async () => { setIsMenuOpen(false); await handleLogout(); }} className="flex items-center w-full text-left px-4 py-3 text-sm font-bold text-red-500 hover:bg-red-50 rounded-xl transition"><i className="fas fa-sign-out-alt mr-3 opacity-50"></i> Logout</button>
                     </div>
                   </div>
                 </>
@@ -236,12 +241,13 @@ const MainContent = () => {
 };
 
 export default function App() {
+  const LOCAL_REVIEWS_KEY = 'gigflow_local_reviews';
   const [user, setUser] = useState<User | null>(null);
   const [users, setUsers] = useState<User[]>(MOCK_USERS);
   const [gigs, setGigs] = useState<Gig[]>(MOCK_GIGS);
   const [orders, setOrders] = useState<Order[]>(MOCK_ORDERS);
   const [messages, setMessages] = useState<Message[]>([]);
-  const [reviews, setReviews] = useState<Review[]>(MOCK_REVIEWS);
+  const [reviews, setReviews] = useState<Review[]>([]);
   const [isDbConnected, setIsDbConnected] = useState(true);
   const [notification, setNotification] = useState<{msg: string, type: 'success' | 'error' | 'info'} | null>(null);
 
@@ -255,6 +261,85 @@ export default function App() {
       avatar: metadata?.avatar_url || FALLBACK_AVATAR(sessionUser.id),
       bio: ''
     };
+  };
+
+  const mapGigRecordToAppGig = (gig: any): Gig => ({
+    id: String(gig.id),
+    sellerId: String(gig.sellerId ?? gig.seller_id ?? ''),
+    sellerName: gig.sellerName ?? gig.seller_name ?? 'Freelancer',
+    title: gig.title ?? '',
+    description: gig.description ?? '',
+    price: Number(gig.price ?? 0),
+    category: gig.category ?? 'General',
+    images: Array.isArray(gig.images) && gig.images.length > 0 ? gig.images : [''],
+    rating: Number(gig.rating ?? 0),
+    reviewsCount: Number(gig.reviewsCount ?? gig.reviews_count ?? 0),
+    deliveryTime: Number(gig.deliveryTime ?? gig.delivery_time ?? 1),
+  });
+
+  const mapReviewRecordToAppReview = (review: any): Review => ({
+    id: String(review.id),
+    gigId: String(review.gigId ?? review.gig_id ?? review.gigID ?? ''),
+    orderId: review.orderId ?? review.order_id ?? 'direct',
+    userId: String(review.userId ?? review.user_id ?? review.userID ?? ''),
+    userName: review.userName ?? review.user_name ?? 'User',
+    userAvatar: review.userAvatar ?? review.user_avatar ?? '',
+    rating: Number(review.rating ?? 0),
+    comment: review.comment ?? '',
+    createdAt: review.createdAt ?? review.created_at ?? new Date().toISOString()
+  });
+
+  const readLocalReviews = (): Review[] => {
+    try {
+      const raw = localStorage.getItem(LOCAL_REVIEWS_KEY);
+      if (!raw) return [];
+      const parsed = JSON.parse(raw);
+      if (!Array.isArray(parsed)) return [];
+      return parsed.map(mapReviewRecordToAppReview);
+    } catch {
+      return [];
+    }
+  };
+
+  const writeLocalReviews = (reviewList: Review[]) => {
+    try {
+      localStorage.setItem(LOCAL_REVIEWS_KEY, JSON.stringify(reviewList));
+    } catch {
+      // ignore storage failures
+    }
+  };
+
+  const mergeReviewsById = (primary: Review[], secondary: Review[]) => {
+    const mergedMap = new Map<string, Review>();
+    secondary.forEach((review) => mergedMap.set(String(review.id), review));
+    primary.forEach((review) => mergedMap.set(String(review.id), review));
+    return Array.from(mergedMap.values()).sort(
+      (a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
+    );
+  };
+
+  const applyReviewStatsToGigs = (baseGigs: Gig[], reviewList: Review[]): Gig[] => {
+    const grouped = reviewList.reduce<Record<string, { total: number; count: number }>>((acc, review) => {
+      const key = String(review.gigId || '');
+      if (!key) return acc;
+      if (!acc[key]) acc[key] = { total: 0, count: 0 };
+      acc[key].total += Number(review.rating || 0);
+      acc[key].count += 1;
+      return acc;
+    }, {});
+
+    return baseGigs.map((gig) => {
+      const stats = grouped[String(gig.id)];
+      if (!stats || stats.count === 0) {
+        return { ...gig, reviewsCount: 0, rating: 0 };
+      }
+
+      return {
+        ...gig,
+        reviewsCount: stats.count,
+        rating: Number((stats.total / stats.count).toFixed(1))
+      };
+    });
   };
 
   const syncProfile = async (sessionUser: any) => {
@@ -292,166 +377,232 @@ export default function App() {
   };
 
   useEffect(() => {
-  const initApp = async () => {
-    let oauthExchangeError: string | null = null;
+    const initApp = async () => {
+      // Handle callback code from either query string or hash query.
+      const url = new URL(window.location.href);
+      const rawHash = window.location.hash?.startsWith('#')
+        ? window.location.hash.slice(1)
+        : '';
+      const hashQueryIndex = rawHash.indexOf('?');
+      const hashQuery = hashQueryIndex >= 0 ? rawHash.slice(hashQueryIndex + 1) : '';
+      const hashQueryParams = new URLSearchParams(hashQuery);
 
-    // Handle callback code from either query string or hash query.
-    const url = new URL(window.location.href);
-    const rawHash = window.location.hash?.startsWith('#')
-      ? window.location.hash.slice(1)
-      : '';
-    const hashQueryIndex = rawHash.indexOf('?');
-    const hashQuery = hashQueryIndex >= 0 ? rawHash.slice(hashQueryIndex + 1) : '';
-    const hashQueryParams = new URLSearchParams(hashQuery);
-    const authError =
-      url.searchParams.get('error_description') ||
-      url.searchParams.get('error') ||
-      hashQueryParams.get('error_description') ||
-      hashQueryParams.get('error');
+      // Force logout path (explicit logout + backward compatibility with old links).
+      const forceLogout = sessionStorage.getItem('force_logout') || url.searchParams.get('force_logout') || hashQueryParams.get('force_logout');
+      if (forceLogout === '1') {
+        try {
+          await supabase.auth.signOut({ scope: 'global' });
+        } catch (e) {
+          console.error("Force logout error:", e);
+        }
 
-    if (authError) {
-      const decoded = decodeURIComponent(authError.replace(/\+/g, ' '));
-      setNotification({ msg: `Sign-in failed: ${decoded}`, type: 'error' });
-      window.history.replaceState({}, document.title, `${window.location.pathname}#/auth?mode=login`);
-    }
+        Object.keys(localStorage)
+          .filter((key) => key.startsWith('sb-'))
+          .forEach((key) => localStorage.removeItem(key));
+        Object.keys(sessionStorage)
+          .filter((key) => key.startsWith('sb-'))
+          .forEach((key) => sessionStorage.removeItem(key));
+        sessionStorage.removeItem('force_logout');
 
-    const authCode = url.searchParams.get('code') || hashQueryParams.get('code');
-
-    if (authCode) {
-      const { error } = await supabase.auth.exchangeCodeForSession(authCode);
-      if (!error) {
-        window.history.replaceState(
-          {},
-          document.title,
-          `${window.location.pathname}#/`
-        );
-      } else {
-        console.error("OAuth code exchange failed:", error.message);
-        oauthExchangeError = error.message;
+        setUser(null);
+        window.history.replaceState({}, document.title, `${window.location.pathname}#/auth?mode=login`);
+        return;
       }
-    }
 
-    // Handle OAuth hash tokens explicitly (HashRouter + OAuth callback can collide on `#`)
-    const hashParams = new URLSearchParams(rawHash);
-    const accessToken = hashParams.get('access_token');
-    const refreshToken = hashParams.get('refresh_token');
+      let oauthExchangeError: string | null = null;
+      const authError =
+        url.searchParams.get('error_description') ||
+        url.searchParams.get('error') ||
+        hashQueryParams.get('error_description') ||
+        hashQueryParams.get('error');
 
-    if (accessToken && refreshToken) {
-      const { error } = await supabase.auth.setSession({
-        access_token: accessToken,
-        refresh_token: refreshToken
-      });
-
-      if (!error) {
-        window.history.replaceState(
-          {},
-          document.title,
-          `${window.location.pathname}${window.location.search}#/`
-        );
+      if (authError) {
+        const decoded = decodeURIComponent(authError.replace(/\+/g, ' '));
+        setNotification({ msg: `Sign-in failed: ${decoded}`, type: 'error' });
+        window.history.replaceState({}, document.title, `${window.location.pathname}#/auth?mode=login`);
       }
-    }
 
-    // Wait for OAuth session restore (important)
-    await new Promise(resolve => setTimeout(resolve, 300));
+      const authCode = url.searchParams.get('code') || hashQueryParams.get('code');
 
-    let currentUser: any = null;
+      if (authCode) {
+        const { error } = await supabase.auth.exchangeCodeForSession(authCode);
+        if (!error) {
+          window.history.replaceState({}, document.title, `${window.location.pathname}#/`);
+        } else {
+          console.error("OAuth code exchange failed:", error.message);
+          oauthExchangeError = error.message;
+        }
+      }
 
-    // Retry session recovery a few times to absorb provider redirect timing.
-    for (let i = 0; i < 3; i++) {
-      const { data: { session } } = await supabase.auth.getSession();
-      currentUser = session?.user || null;
-      if (currentUser) break;
-      await new Promise(resolve => setTimeout(resolve, 250));
-    }
+      // Handle OAuth hash tokens explicitly (HashRouter + OAuth callback can collide on `#`)
+      const hashParams = new URLSearchParams(rawHash);
+      const accessToken = hashParams.get('access_token');
+      const refreshToken = hashParams.get('refresh_token');
+      const isOAuthCallbackFlow = Boolean(authCode || (accessToken && refreshToken));
 
-    // If session not ready yet (Google redirect case)
-    if (!currentUser) {
+      if (accessToken && refreshToken) {
+        const { error } = await supabase.auth.setSession({
+          access_token: accessToken,
+          refresh_token: refreshToken
+        });
+
+        if (!error) {
+          window.history.replaceState({}, document.title, `${window.location.pathname}${window.location.search}#/`);
+        }
+      }
+
+      // On fresh localhost opens, do not silently restore old sessions.
+      if (!isOAuthCallbackFlow) {
+        await supabase.auth.signOut({ scope: 'local' }).catch(() => undefined);
+        Object.keys(localStorage)
+          .filter((key) => key.startsWith('sb-') || key.includes('supabase.auth'))
+          .forEach((key) => localStorage.removeItem(key));
+        Object.keys(sessionStorage)
+          .filter((key) => key.startsWith('sb-') || key.includes('supabase.auth'))
+          .forEach((key) => sessionStorage.removeItem(key));
+      }
+
+      // Wait for OAuth session restore (important)
+      await new Promise(resolve => setTimeout(resolve, 300));
+
+      let currentUser: any = null;
+      let hasInvalidRefreshToken = false;
+
+      // Retry session recovery a few times to absorb provider redirect timing.
       for (let i = 0; i < 3; i++) {
-        const { data } = await supabase.auth.getUser();
-        currentUser = data.user || null;
+        const { data: { session }, error } = await supabase.auth.getSession();
+        if (error?.message?.toLowerCase().includes('refresh token')) {
+          hasInvalidRefreshToken = true;
+          break;
+        }
+        currentUser = session?.user || null;
         if (currentUser) break;
         await new Promise(resolve => setTimeout(resolve, 250));
       }
-    }
 
-    if (currentUser) {
-      setUser(mapSessionUserToAppUser(currentUser));
-      await syncProfile(currentUser);
-    } else if (oauthExchangeError) {
-      setNotification({ msg: `Sign-in failed: ${oauthExchangeError}`, type: 'error' });
-    }
+      // If session not ready yet (Google redirect case)
+      if (!currentUser && !hasInvalidRefreshToken) {
+        for (let i = 0; i < 3; i++) {
+          const { data, error } = await supabase.auth.getUser();
+          if (error?.message?.toLowerCase().includes('refresh token')) {
+            hasInvalidRefreshToken = true;
+            break;
+          }
+          currentUser = data.user || null;
+          if (currentUser) break;
+          await new Promise(resolve => setTimeout(resolve, 250));
+        }
+      }
 
-       
+      if (hasInvalidRefreshToken) {
+        await supabase.auth.signOut({ scope: 'local' }).catch(() => undefined);
+        Object.keys(localStorage)
+          .filter((key) => key.startsWith('sb-') || key.includes('supabase.auth'))
+          .forEach((key) => localStorage.removeItem(key));
+        Object.keys(sessionStorage)
+          .filter((key) => key.startsWith('sb-') || key.includes('supabase.auth'))
+          .forEach((key) => sessionStorage.removeItem(key));
+        setUser(null);
+      }
+
+      if (currentUser) {
+        setUser(mapSessionUserToAppUser(currentUser));
+        await syncProfile(currentUser);
+      } else if (oauthExchangeError) {
+        setNotification({ msg: `Sign-in failed: ${oauthExchangeError}`, type: 'error' });
+      }
+
       try {
         const [gigsData] = await Promise.all([api.getGigs()]);
-setGigs(gigsData || MOCK_GIGS);
+        setIsDbConnected(true);
+        const baseGigs = (gigsData && gigsData.length > 0)
+          ? gigsData.map(mapGigRecordToAppGig)
+          : MOCK_GIGS;
 
-// LOAD REVIEWS FROM SUPABASE (robust)
-const { data: reviewsData, error: reviewsError } = await supabase
-  .from("reviews")
-  .select("*")
-  .order("created_at", { ascending: false });
+        // LOAD REVIEWS FROM SUPABASE (robust across snake_case/camelCase schemas)
+        let reviewFetch = await supabase
+          .from("reviews")
+          .select("*")
+          .order("created_at", { ascending: false });
 
-console.log("Loaded reviews from DB:", reviewsData);
+        if (reviewFetch.error) {
+          reviewFetch = await supabase
+            .from("reviews")
+            .select("*")
+            .order("createdAt", { ascending: false });
+        }
 
-if (reviewsError) { 
-  console.error("Review fetch error:", reviewsError.message);
-} 
-else if (reviewsData && reviewsData.length > 0) {
+        if (reviewFetch.error) {
+          reviewFetch = await supabase
+            .from("reviews")
+            .select("*");
+        }
 
-  const formattedReviews = reviewsData.map(r => ({
-    id: r.id,
-    gigId: r.gig_id,
-    userId: r.user_id,
-    rating: r.rating,
-    comment: r.comment,
-    createdAt: r.created_at
-  }));
-  
-  setReviews(formattedReviews);
+        const { data: reviewsData, error: reviewsError } = reviewFetch;
 
-} 
-else {
-  console.log("No reviews found in database");
-}
+        console.log("Loaded reviews from DB:", reviewsData);
 
+        const localReviews = readLocalReviews();
 
+        if (reviewsError) {
+          console.error("Review fetch error:", reviewsError.message);
+          setReviews(localReviews);
+          setGigs(applyReviewStatsToGigs(baseGigs, localReviews));
+        }
+        else if (reviewsData) {
+          const formattedReviews: Review[] = reviewsData.map(mapReviewRecordToAppReview);
+          const mergedReviews = mergeReviewsById(formattedReviews, localReviews);
+          setReviews(mergedReviews);
+          setGigs(applyReviewStatsToGigs(baseGigs, mergedReviews));
+          if (reviewsData.length === 0) {
+            console.log("No reviews found in database");
+          }
+        }
+        else {
+          setReviews(localReviews);
+          setGigs(applyReviewStatsToGigs(baseGigs, localReviews));
+          console.log("No reviews found in database");
+        }
 
-
-
-        
         if (currentUser) {
-  const [ordersData, messagesData] = await Promise.all([
-    api.getOrders(currentUser.id),
-    api.getMessages(currentUser.id)
-  ]);
-  setOrders(ordersData);
-  setMessages(messagesData);
-}
+          const [ordersData, messagesData] = await Promise.all([
+            api.getOrders(currentUser.id),
+            api.getMessages(currentUser.id)
+          ]);
+          setOrders(ordersData);
+          setMessages(messagesData);
+        }
 
       } catch (err) {
         console.warn("Supabase fetch warning", err);
+        setIsDbConnected(false);
+        const localReviews = readLocalReviews();
+        setReviews(localReviews);
+        setGigs(applyReviewStatsToGigs(MOCK_GIGS, localReviews));
+        const errorMessage = (err as any)?.message || '';
+        if (String(errorMessage).toLowerCase().includes('404')) {
+          notify("Supabase schema missing: create public tables like gigs/profiles/orders/reviews/messages.", "error");
+        }
       }
     };
 
     initApp();
 
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
-  async (event, session) => {
+      async (event, session) => {
+        if (session?.user) {
+          // Handles SIGNED_IN + INITIAL_SESSION
+          setUser(mapSessionUserToAppUser(session.user));
+          await syncProfile(session.user);
+        }
 
-    if (session?.user) {
-      // Handles SIGNED_IN + INITIAL_SESSION
-      setUser(mapSessionUserToAppUser(session.user));
-      await syncProfile(session.user);
-    }
-
-    if (event === 'SIGNED_OUT') {
-      setUser(null);
-    }
-  }
-);
-
-
+        if (event === 'SIGNED_OUT') {
+          setUser(null);
+          setOrders([]);
+          setMessages([]);
+        }
+      }
+    );
 
     return () => subscription.unsubscribe();
   }, []);
@@ -535,71 +686,118 @@ else {
     }
   };
 
-  const addReview = async (review: Review) => {
-  const basePayload = {
-    gig_id: review.gigId,
-    user_id: review.userId,
-    rating: review.rating,
-    comment: review.comment,
-    created_at: new Date().toISOString()
-  };
-
-  const fullPayload = {
-    ...basePayload,
-    order_id: review.orderId,
-    user_name: review.userName,
-    user_avatar: review.userAvatar
-  };
-
-  let insertResult = await supabase
-    .from("reviews")
-    .insert([fullPayload])
-    .select();
-
-  // Retry with minimal schema if optional columns don't exist in DB.
-  if (insertResult.error) {
-    insertResult = await supabase
-      .from("reviews")
-      .insert([basePayload])
-      .select();
-  }
-
-  const { data, error } = insertResult;
-
-  if (error) {
-    console.error("Review insert error:", error.message);
-    notify(`Failed to save review: ${error.message}`, "error");
-    return;
-  }
-
-  if (data && data.length > 0) {
-    const newReview = {
-      id: data[0].id,
-      gigId: data[0].gig_id,
-      orderId: data[0].order_id || review.orderId || 'direct',
-      userId: data[0].user_id,
-      userName: data[0].user_name || review.userName || 'User',
-      userAvatar: data[0].user_avatar || review.userAvatar,
-      rating: data[0].rating,
-      comment: data[0].comment,
-      createdAt: data[0].created_at
+  // FIXED: addReview now properly throws errors so callers can handle them
+  const addReview = async (review: Review): Promise<void> => {
+    const reviewId = review.id || `rev_${Math.random().toString(36).slice(2, 11)}`;
+    const optimisticReview: Review = {
+      ...review,
+      id: reviewId,
+      createdAt: review.createdAt || new Date().toISOString()
     };
 
-    // IMPORTANT: update state immediately
-    setReviews(prev => [newReview, ...prev]);
-    setOrders(prev =>
-      prev.map(o => (o.id === review.orderId ? { ...o, reviewId: newReview.id } : o))
-    );
-  }
+    // Optimistic update + local persistence so all gigs reflect new feedback immediately.
+    setReviews(prev => {
+      const updatedReviews = [optimisticReview, ...prev.filter(r => String(r.id) !== String(optimisticReview.id))];
+      setGigs(prevGigs => applyReviewStatsToGigs(prevGigs, updatedReviews));
+      return updatedReviews;
+    });
+    const pendingLocal = [optimisticReview, ...readLocalReviews().filter(r => String(r.id) !== String(optimisticReview.id))];
+    writeLocalReviews(pendingLocal);
 
-  notify("Feedback submitted successfully", "success");
-};
+    const basePayloadSnake = {
+      id: reviewId,
+      gig_id: review.gigId,
+      user_id: review.userId,
+      rating: review.rating,
+      comment: review.comment,
+      created_at: new Date().toISOString()
+    };
 
+    const fullPayloadSnake = {
+      ...basePayloadSnake,
+      order_id: review.orderId,
+      user_name: review.userName,
+      user_avatar: review.userAvatar
+    };
 
+    const basePayloadCamel = {
+      id: reviewId,
+      gigId: review.gigId,
+      userId: review.userId,
+      rating: review.rating,
+      comment: review.comment,
+      createdAt: new Date().toISOString()
+    };
 
+    const fullPayloadCamel = {
+      ...basePayloadCamel,
+      orderId: review.orderId,
+      userName: review.userName,
+      userAvatar: review.userAvatar
+    };
 
+    // Try variants for different DB schemas (text id, uuid id default, optional columns).
+    const payloadVariants = [
+      fullPayloadSnake,
+      { ...fullPayloadSnake, id: undefined },
+      basePayloadSnake,
+      { ...basePayloadSnake, id: undefined },
+      fullPayloadCamel,
+      { ...fullPayloadCamel, id: undefined },
+      basePayloadCamel,
+      { ...basePayloadCamel, id: undefined }
+    ];
 
+    let insertResult: any = { data: null, error: null };
+    for (const variant of payloadVariants) {
+      const cleaned = Object.fromEntries(
+        Object.entries(variant).filter(([, value]) => value !== undefined)
+      );
+      insertResult = await supabase.from("reviews").insert([cleaned]).select();
+      if (!insertResult.error) break;
+    }
 
+    const { data, error } = insertResult;
+
+    if (error) {
+      console.error("Review insert error:", error.message);
+      if (review.orderId) {
+        setOrders(prev => prev.map(o => (o.id === review.orderId ? { ...o, reviewId: optimisticReview.id } : o)));
+      }
+      throw new Error(`Feedback saved locally only. Supabase insert failed: ${error.message}`);
+    }
+
+    if (data && data.length > 0) {
+      const newReview: Review = mapReviewRecordToAppReview({
+        ...data[0],
+        gigId: data[0].gig_id ?? review.gigId,
+        orderId: data[0].order_id ?? review.orderId ?? 'direct',
+        userId: data[0].user_id ?? review.userId,
+        userName: data[0].user_name ?? review.userName ?? 'User',
+        userAvatar: data[0].user_avatar ?? review.userAvatar
+      });
+
+      // IMPORTANT: update state immediately
+      setReviews(prev => {
+        const updatedReviews = [newReview, ...prev.filter(r => String(r.id) !== String(optimisticReview.id))];
+        setGigs(prevGigs => applyReviewStatsToGigs(prevGigs, updatedReviews));
+        return updatedReviews;
+      });
+      writeLocalReviews(readLocalReviews().filter(r => String(r.id) !== String(optimisticReview.id)));
+      
+      // Update order with reviewId if orderId exists
+      if (review.orderId) {
+        setOrders(prev => prev.map(o => {
+          if (o.id === review.orderId) {
+            return { ...o, reviewId: newReview.id };
+          }
+          return o;
+        }));
+      }
+    }
+
+    notify("Feedback submitted successfully", "success");
+  };
 
   const sendMessage = async (receiverId: string, text: string) => {
     if (!user) return;
@@ -634,3 +832,4 @@ else {
     </AppContext.Provider>
   );
 }
+

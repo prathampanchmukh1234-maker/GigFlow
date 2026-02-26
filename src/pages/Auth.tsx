@@ -89,7 +89,10 @@ export default function Auth() {
             role: data.role,
             avatar_url: `https://api.dicebear.com/7.x/avataaars/svg?seed=${data.email}`
           }]);
-          if (profileError) console.error("Profile sync error", profileError);
+          if (profileError) {
+            console.error("Profile sync error", profileError);
+            notify("Account created, but profile row failed to save. Check Supabase RLS policy for profiles INSERT.", "error");
+          }
         }
 
         notify("Registration successful! Check your email to verify.", "success");

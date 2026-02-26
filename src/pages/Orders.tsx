@@ -39,28 +39,40 @@ const ReviewModal = ({ order, isOpen, onClose, onSubmitted }: { order: any, isOp
   const [rating, setRating] = useState(5);
   const [comment, setComment] = useState('');
   const [hoverRating, setHoverRating] = useState(0);
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
   if (!isOpen) return null;
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!user) return;
     
-    const newReview: Review = {
-      id: 'rev_' + Math.random().toString(36).substr(2, 9),
-      gigId: order.gig_id || order.gigId,
-      orderId: order.id,
-      userId: user.id,
-      userName: user.name,
-      userAvatar: user.avatar,
-      rating,
-      comment,
-      createdAt: new Date().toISOString()
-    };
-    
-    addReview(newReview);
-    onSubmitted(order.id);
-    onClose();
+    setIsSubmitting(true);
+    try {
+      const newReview: Review = {
+        id: 'rev_' + Math.random().toString(36).substr(2, 9),
+        gigId: order.gig_id || order.gigId,
+        orderId: order.id,
+        userId: user.id,
+        userName: user.name,
+        userAvatar: user.avatar,
+        rating,
+        comment,
+        createdAt: new Date().toISOString()
+      };
+      
+      // Call addReview and wait for it to complete
+      await addReview(newReview);
+      
+      // Only close the modal after successful submission
+      onSubmitted(order.id);
+      onClose();
+    } catch (err: any) {
+      console.error("Review submission error:", err);
+      alert(err?.message || "Failed to submit review. Please try again.");
+    } finally {
+      setIsSubmitting(false);
+    }
   };
 
   return (
@@ -110,9 +122,10 @@ const ReviewModal = ({ order, isOpen, onClose, onSubmitted }: { order: any, isOp
 
           <button 
             type="submit"
-            className="w-full py-5 bg-emerald-600 text-white rounded-2xl font-black text-lg hover:bg-emerald-700 transition-all shadow-xl shadow-emerald-200 active:scale-95"
+            disabled={isSubmitting}
+            className="w-full py-5 bg-emerald-600 text-white rounded-2xl font-black text-lg hover:bg-emerald-700 transition-all shadow-xl shadow-emerald-200 active:scale-95 disabled:opacity-50"
           >
-            Submit Review
+            {isSubmitting ? 'Submitting...' : 'Submit Review'}
           </button>
         </form>
       </div>

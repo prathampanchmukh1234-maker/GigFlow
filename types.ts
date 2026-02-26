@@ -1,4 +1,3 @@
-
 export enum UserRole {
   FREELANCER = 'FREELANCER',
   CLIENT = 'CLIENT',
@@ -65,7 +64,7 @@ export interface Conversation {
 export interface Review {
   id: string;
   gigId: string;
-  orderId: string; // Linked to a specific order
+  orderId?: string; // Optional - can be direct review without order
   userId: string;
   userName: string;
   userAvatar?: string;
